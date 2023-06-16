@@ -39,9 +39,9 @@ class CausalSelfAttention(nn.Module):
         super().__init__()
         assert config.n_embd % config.n_head == 0
         # key, query, value projections for all heads, but in a batch
-        self.c_attn = nn.Linear(config.n_embd, 3 * config.n_embd, bias=config.bias)
+        self.c_attn = nn.DataParallel(nn.Linear(config.n_embd, 3 * config.n_embd, bias=config.bias))
         # output projection
-        self.c_proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
+        self.c_proj = nn.DataParallel(nn.Linear(config.n_embd, config.n_embd, bias=config.bias))
         # regularization
         self.attn_dropout = nn.Dropout(config.dropout)
         self.resid_dropout = nn.Dropout(config.dropout)
@@ -86,8 +86,8 @@ class MLP(nn.Module):
 
     def __init__(self, config):
         super().__init__()
-        self.c_fc    = nn.Linear(config.n_embd, 4 * config.n_embd, bias=config.bias)
-        self.c_proj  = nn.Linear(4 * config.n_embd, config.n_embd, bias=config.bias)
+        self.c_fc    = nn.DataParallel(nn.Linear(config.n_embd, 4 * config.n_embd, bias=config.bias))
+        self.c_proj  = nn.DataParallel(nn.Linear(4 * config.n_embd, config.n_embd, bias=config.bias))
         self.dropout = nn.Dropout(config.dropout)
 
     def forward(self, x):
@@ -101,7 +101,7 @@ class Block(nn.Module):
 
     def __init__(self, config):
         super().__init__()
-        self.ln_1 = LayerNorm(config.n_embd, bias=config.bias)
+        self.ln_1 = nn.DataParallel(LayerNorm(config.n_embd, bias=config.bias))
         self.attn = CausalSelfAttention(config)
         self.ln_2 = LayerNorm(config.n_embd, bias=config.bias)
         self.mlp = MLP(config)
@@ -141,8 +141,8 @@ class GPT(nn.Module):
         # "UserWarning: functional_call was passed multiple values for tied weights.
         # This behavior is deprecated and will be an error in future versions"
         # not 100% sure what this is, so far seems to be harmless. TODO investigate
-        self.transformer.wte.weight = self.lm_head.weight # https://paperswithcode.com/method/weight-tying
-
+        self.lm_head=nn.DataParallel(self.lm_head)
+        self.transformer.wte.weight = self.lm_head.module.weight # https://paperswithcode.com/method/weight-tying
         # init all weights
         self.apply(self._init_weights)
         # apply special scaled init to the residual projections, per GPT-2 paper
@@ -254,15 +254,29 @@ class GPT(nn.Module):
         assert len(sd_keys_hf) == len(sd_keys), f"mismatched keys: {len(sd_keys_hf)} != {len(sd_keys)}"
         for k in sd_keys_hf:
             if any(k.endswith(w) for w in transposed):
+                k_sub=k
+                if k not in sd:
+                    if ".weight" in k:
+                        idx = k.index(".weight")
+                    else:
+                        idx = k.index(".bias")
+                    k_sub = k[:idx] + ".module" + k[idx:]
                 # special treatment for the Conv1D weights we need to transpose
-                assert sd_hf[k].shape[::-1] == sd[k].shape
+                assert sd_hf[k].shape[::-1] == sd[k_sub].shape
                 with torch.no_grad():
-                    sd[k].copy_(sd_hf[k].t())
+                    sd[k_sub].copy_(sd_hf[k].t())
             else:
+                k_sub=k
+                if k not in sd:
+                    if ".weight" in k:
+                        idx = k.index(".weight")
+                    else:
+                        idx = k.index(".bias")
+                    k_sub = k[:idx] + ".module" + k[idx:]
                 # vanilla copy over the other parameters
-                assert sd_hf[k].shape == sd[k].shape
+                assert sd_hf[k].shape == sd[k_sub].shape
                 with torch.no_grad():
-                    sd[k].copy_(sd_hf[k])
+                    sd[k_sub].copy_(sd_hf[k])
 
         return model
 
@@ -309,13 +323,17 @@ class GPT(nn.Module):
         return mfu
 
     @torch.no_grad()
-    def generate(self, idx, max_new_tokens, temperature=1.0, top_k=None):
+    def generate(self, idx, max_new_tokens, temperature=1.0, top_k=None, stop=None, logprobs=None, decode=None,logit_bias=None):
         """
         Take a conditioning sequence of indices idx (LongTensor of shape (b,t)) and complete
         the sequence max_new_tokens times, feeding the predictions back into the model each time.
         Most likely you'll want to make sure to be in model.eval() mode of operation for this.
         """
-        for _ in range(max_new_tokens):
+        top_logprobs=[]
+        finish_reason="length"
+        tokens = []
+        token_logprobs = []
+        for count in range(max_new_tokens):
             # if the sequence context is growing too long we must crop it at block_size
             idx_cond = idx if idx.size(1) <= self.config.block_size else idx[:, -self.config.block_size:]
             # forward the model to get the logits for the index in the sequence
@@ -328,9 +346,30 @@ class GPT(nn.Module):
                 logits[logits < v[:, [-1]]] = -float('Inf')
             # apply softmax to convert logits to (normalized) probabilities
             probs = F.softmax(logits, dim=-1)
+            if logit_bias is not None:
+                for key, value in logit_bias.items():
+                    probs[0,int(key)]+=value                   
             # sample from the distribution
             idx_next = torch.multinomial(probs, num_samples=1)
+            if stop is not None:
+                temp = torch.cat((idx, idx_next), dim=1)
+                check=decode(temp[0].tolist())
+                should_break=False
+                for s in stop:
+                    if s in check:
+                        finish_reason="stop"
+                        should_break=True
+                if should_break:
+                    break
             # append sampled index to the running sequence and continue
             idx = torch.cat((idx, idx_next), dim=1)
+            if logprobs != None:
+                tokens.append(decode(idx[0].tolist())[-1])
+                idx_next_prob = probs[:, idx_next.squeeze().item()].item()
 
-        return idx
+                token_logprobs.append(idx_next_prob)
+                top_probs, top_indices = torch.topk(probs, k=logprobs, dim=-1)
+                log_probs = torch.log(top_probs)
+                top_logprobs.append({"ids_top_logprobs":list(decode(top_indices.squeeze().tolist())),"top_logprobs":log_probs.tolist()})
+
+        return idx, finish_reason, top_logprobs, tokens, token_logprobs

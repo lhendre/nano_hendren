@@ -44,7 +44,7 @@ class Inference():
         self.ptdtype = {'float32': torch.float32, 'bfloat16': torch.bfloat16, 'float16': torch.float16}[dtype]
         self.ctx = nullcontext() if self.device_type == 'cpu' else torch.amp.autocast(device_type=self.device_type, dtype=self.ptdtype)
 
-    def run(self):
+    def run(self, stop=None, logprobs=None, logit_bias=None):
 
         # model
         if self.init_from == 'resume':
@@ -95,27 +95,26 @@ class Inference():
         start_ids = encode(self.start)
         x = (torch.tensor(start_ids, dtype=torch.long, device=self.device)[None, ...])
 
-# [
-#         {
-#             "text": "\n\nThis is indeed a test",
-#             "index": 0,
-#             "logprobs": null,
-#             "finish_reason": "length"
-#         }
-#         ]
-
         # run generation
         results = []
         with torch.no_grad():
             with self.ctx:
                 for k in range(self.num_samples):
-                    y = model.generate(x, self.max_new_tokens, temperature=self.temperature, top_k=self.top_k)
+                    y, finish_reason, top_logprobs, tokens, token_logprobs = model.generate(x, self.max_new_tokens, temperature=self.temperature, top_k=self.top_k, stop=stop, logprobs=logprobs,decode=decode, logit_bias=logit_bias)
                     print(decode(y[0].tolist()))
                     print('---------------')
+                    final_log_prob = {
+                            "tokens":tokens,
+                            "token_logprobs":token_logprobs,
+                            "top_logprobs":top_logprobs,
+                        }
+                    if len(top_logprobs) == 0:
+                        final_log_prob = None
                     result={
                         "text":decode(y[0].tolist()),
                         "index":k,
-                        "logprobs":None
+                        "logprobs":final_log_prob,
+                        "finish_reason":finish_reason
                     }
                     results.append(result)
         return results
