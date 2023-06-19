@@ -13,6 +13,9 @@ QueueUrl = sqs.get_queue_url(QueueName="nano.fifo")
 
 gpt_models = ['gpt2','gpt2-medium','gpt2-large','gpt2-xl']
 def app():
+    '''
+    App processor.  Retrieves data to process from queue, process data then uploads to reddit
+    '''
     deactivate = False    
     while deactivate is not True:
 
