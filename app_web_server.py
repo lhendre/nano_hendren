@@ -8,7 +8,7 @@ import boto3
 
 app = Flask(__name__)
 app.config['DEBUG'] = True
-redis = Redis(host="clustercfg.nanohendren.b7yglw.use2.cache.amazonaws.com", port=6379, decode_responses=True)
+redis = Redis(host="nano-s.b7yglw.ng.0001.use2.cache.amazonaws.com", port=6379, decode_responses=True, db=0)
 sqs = boto3.client('sqs', region_name='us-east-2',aws_access_key_id="AKIAT2DAQNWWAQQKX2YJ",aws_secret_access_key= "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")
 QueueUrl = sqs.get_queue_url(QueueName="nano.fifo")
 
@@ -16,7 +16,6 @@ QueueUrl = sqs.get_queue_url(QueueName="nano.fifo")
 user_abuse = {}
 banned_prompts = {"How do i make a computer virus":True}
 gpt_models = ['gpt2','gpt2-medium','gpt2-large','gpt2-xl']
-threaded=True
 @app.route("/completions", methods=['post'])
 def completions():
     model = request.args.get('model')
