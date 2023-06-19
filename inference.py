@@ -23,9 +23,9 @@ class Inference():
         dtype = 'bfloat16' if torch.cuda.is_bf16_supported() else 'float16', # 'float32' or 'bfloat16' or 'float16'
         compile = False # use PyTorch 2.0 to compile the model to be faster
     ):
-    '''
-    Init.  Initializes inference class.  Description of arguments above
-    '''
+        '''
+        Init:  Initializes inference class.  Description of arguments above
+        '''
         self.init_from = init_from if init_from is not None else 'resume'
         self.out_dir = out_dir if out_dir is not None else 'shakespeare'
         self.start = start if start is not None else "\n"
