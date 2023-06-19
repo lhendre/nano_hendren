@@ -41,6 +41,7 @@ class CausalSelfAttention(nn.Module):
         # key, query, value projections for all heads, but in a batch
         self.c_attn = nn.DataParallel(nn.Linear(config.n_embd, 3 * config.n_embd, bias=config.bias))
         # output projection
+        # dataparallel layer
         self.c_proj = nn.DataParallel(nn.Linear(config.n_embd, config.n_embd, bias=config.bias))
         # regularization
         self.attn_dropout = nn.Dropout(config.dropout)
@@ -86,6 +87,7 @@ class MLP(nn.Module):
 
     def __init__(self, config):
         super().__init__()
+        # dataparallel layer
         self.c_fc    = nn.DataParallel(nn.Linear(config.n_embd, 4 * config.n_embd, bias=config.bias))
         self.c_proj  = nn.DataParallel(nn.Linear(4 * config.n_embd, config.n_embd, bias=config.bias))
         self.dropout = nn.Dropout(config.dropout)
@@ -252,6 +254,7 @@ class GPT(nn.Module):
         # basically the openai checkpoints use a "Conv1D" module, but we only want to use a vanilla Linear
         # this means that we have to transpose these weights when we import them
         assert len(sd_keys_hf) == len(sd_keys), f"mismatched keys: {len(sd_keys_hf)} != {len(sd_keys)}"
+        # updated key comparison to allow for parallel layers
         for k in sd_keys_hf:
             if any(k.endswith(w) for w in transposed):
                 k_sub=k
