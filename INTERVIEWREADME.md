@@ -77,3 +77,5 @@ One additional note on methodology.  It was my goal to keep changes to nano-gpt 
 
 
 Overall, I believe the results are good.  This added in alot of the functionality of the openai endpoint, in a highly scalable matter.  The processing time is a bit slow(~1 minute for normal shakespeare, ~2 minutes and 40 seconds for gpt2), but results on that are partially limited due to hardware constraints.
+
+Contact use for live demo.
