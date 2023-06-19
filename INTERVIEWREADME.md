@@ -53,7 +53,7 @@ Make sure your config file, sqs and redis server are running for this.
 
 Overall, I deployed a scalable server providing much functionality of the completion api from openai which, a video of the results can be seen below.
 
-[![Demo]](https://drive.google.com/file/d/1-x2gmj_km3pddwV341Vcqn5rgbAHfV6m/view?usp=drive_link)
+[Demo](https://drive.google.com/file/d/1-x2gmj_km3pddwV341Vcqn5rgbAHfV6m/view?usp=drive_link)
 
 
 I started off by building a simpel single server version that accomplished the base goals, then expanded to include additional parameters, the model switching and mulit-gpu.
