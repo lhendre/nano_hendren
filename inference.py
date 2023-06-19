@@ -34,7 +34,7 @@ class Inference():
         self.device = device if device is not None else 'cuda'
         self.dtype = dtype if dtype is not None else 'bfloat16' if torch.cuda.is_bf16_supported() else 'float16'
         self.compile = compile if compile is not None else False
-        exec(open('configurator.py').read()) # overrides from command line or config file
+        # exec(open('configurator.py').read()) # overrides from command line or config file
         print("Prompt",start)
         torch.manual_seed(seed)
         torch.cuda.manual_seed(seed)
