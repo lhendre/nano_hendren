@@ -53,7 +53,7 @@ Make sure your config file, sqs and redis server are running for this.
 
 Overall, I deployed a scalable server providing much functionality of the completion api from openai which, a video of the results can be seen below.
 
-[![Demo]](https://drive.google.com/file/d/1-x2gmj_km3pddwV341Vcqn5rgbAHfV6m/view?usp=drive_link)
+[Demo](https://drive.google.com/file/d/1-x2gmj_km3pddwV341Vcqn5rgbAHfV6m/view?usp=drive_link)
 
 
 I started off by building a simpel single server version that accomplished the base goals, then expanded to include additional parameters, the model switching and mulit-gpu.
@@ -69,6 +69,9 @@ I also wanted to include a small custom model as a demonstration of experience i
 I also added the base user check for fraud and testing as a sample of future features.
 
 Based on my experience, scaling and making systems more efficient seemed like a good use of time.  As such, after getting the first version working. I broke this system up into one server to take in requests, and another to process requests.  This is a better and more scalable system as you can now ensure no request gets dropped and resources are managed appropriately.  I went with your suggestions, as a future change, I woudl suggest considering having another endpoint(get), to get the requests.  Some of these requests can take a long time to process, it maybe better to have the user intermittently poll to see if their request is done processing instead of waiting.  There are other improvements that can be made as well but this break up of tasks into seperate processes seems like a good step.
+
+For server hosting.  It was primarily based on available credits.  Azure would normally be my first choice; however, I recently completed a graduate certificate course through Stanford and gained access to aws credits for it, allowing me to use better servers then my current hardware for free.  You can sub out sqs for the azure service bus, and azure cache for redis and make the switch fairly easily.  For final testing i used a Deep Learning AMI GPU PyTorch 1.13.1 (Ubuntu 20.04) with a g4dn.12xlarge.  For production in azure I would likely start testing with a ND A100 v4-series and for dev work I would likely start looking at the NC-series
+
 
 One additional note on methodology.  It was my goal to keep changes to nano-gpt itself to a minimum for this excersize.  Firstly, I didnt want to waste time and resources reinventing the wheel when unnecessary.  Secondly, every change increases the likihood of bugs which I sought to keep at a mimimum.
 
