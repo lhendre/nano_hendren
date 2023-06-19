@@ -15,7 +15,6 @@ QueueUrl = sqs.get_queue_url(QueueName="nano.fifo")
 user_abuse = {}
 banned_prompts = {"How do i make a computer virus":True}
 gpt_models = ['gpt2','gpt2-medium','gpt2-large','gpt2-xl']
-threaded=True
 @app.route("/completions", methods=['post'])
 def completions():
     '''
