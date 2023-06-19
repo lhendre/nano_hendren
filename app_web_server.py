@@ -1,5 +1,4 @@
 from flask import Flask, request
-from inference import Inference
 import uuid
 import time
 import json
@@ -8,7 +7,7 @@ import boto3
 
 app = Flask(__name__)
 app.config['DEBUG'] = True
-redis = Redis(host="clustercfg.nanohendren.b7yglw.use2.cache.amazonaws.com", port=6379, decode_responses=True)
+redis = Redis(host="nano-s.b7yglw.ng.0001.use2.cache.amazonaws.com", port=6379, decode_responses=True, db=0)
 sqs = boto3.client('sqs', region_name='us-east-2',aws_access_key_id="AKIAT2DAQNWWAQQKX2YJ",aws_secret_access_key= "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")
 QueueUrl = sqs.get_queue_url(QueueName="nano.fifo")
 
@@ -43,7 +42,7 @@ def completions():
     if logit_bias is not None:
         logit_bias=json.loads(logit_bias)
     print("model",model,prompt)
-    idRequest = uuid.uuid4()
+    idRequest = uuid.uuid4().int
 
     message = {
         "id":idRequest,
@@ -56,12 +55,12 @@ def completions():
         "stop":stop,
         "logit_bias":logit_bias,
         "init_from":init_from,
-        "out_dir":out_dir
+        "out_dir":out_dir,
     }
-    send_message(message)
+    send_message(message,idRequest)
     t_end = time.time() + 60 * 1
     while time.time() < t_end:
-            if(redis.exists(idRequest)):
+            if(redis.exists(str(idRequest))):
                 result=redis.get(idRequest)
                 result=json.loads(result)
                 break
@@ -74,7 +73,7 @@ def completions():
             "Error": "Data wasnt processed."
         }, 400   
         
-    
+    print("result:",result)
     return result
 
 def abuse_check(user, prompt):
@@ -96,10 +95,12 @@ def abuse_check(user, prompt):
         }
     return False   
 
-def send_message(message):
+def send_message(message,idMessaageGroup):
     response = sqs.send_message(
-        QueueUrl="https://us-west-2.queue.amazonaws.com/xxx/my-new-queue",
-        MessageBody=json.dumps(message)
+        MessageGroupId=str(idMessaageGroup),
+        QueueUrl=QueueUrl["QueueUrl"],
+        MessageBody=json.dumps(message),
+        MessageDeduplicationId=str(idMessaageGroup)
     )
 
     print(response)
