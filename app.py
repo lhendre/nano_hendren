@@ -10,9 +10,20 @@ app.config['DEBUG'] = True
 user_abuse = {}
 banned_prompts = {"How do i make a computer virus":True}
 gpt_models = ['gpt2','gpt2-medium','gpt2-large','gpt2-xl']
+
 threaded=True
 @app.route("/completions", methods=['post'])
 def completions():
+    '''
+    Completions post endpoint.  registers request and process
+
+            Parameters:
+                    request: arguments from user
+            Returns:
+                    result: result from processed request
+    '''
+
+    #gets and parses data
     model = request.args.get('model')
     prompt = request.args.get('prompt')
     suffix = request.args.get('suffix')
@@ -41,22 +52,20 @@ def completions():
         out_dir=None
     if logit_bias is not None:
         logit_bias=json.loads(logit_bias)
-    print("model",model,prompt)
+
+    #runs model    
     i = Inference(init_from=init_from,out_dir=out_dir,start=prompt,num_samples=n,max_new_tokens=max_tokens,temperature=temperature)
     r = i.run(stop=stop,logprobs=logprobs,logit_bias=logit_bias)
     idRequest = uuid.uuid4()
     ts = time.time()
+
+    #set up results
     result = {
         "id": "cmpl-"+str(idRequest),
         "object": "text_completion",
         "created": ts,
         "model":    model,
         "choices": r,
-        "usage": {
-            "prompt_tokens": "t",
-            "completion_tokens": "t",
-            "total_tokens": "t"
-        }
     }
     return result
 

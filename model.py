@@ -346,11 +346,13 @@ class GPT(nn.Module):
                 logits[logits < v[:, [-1]]] = -float('Inf')
             # apply softmax to convert logits to (normalized) probabilities
             probs = F.softmax(logits, dim=-1)
+            #apply logit bias
             if logit_bias is not None:
                 for key, value in logit_bias.items():
                     probs[0,int(key)]+=value                   
             # sample from the distribution
             idx_next = torch.multinomial(probs, num_samples=1)
+            # apply stop argument
             if stop is not None:
                 temp = torch.cat((idx, idx_next), dim=1)
                 check=decode(temp[0].tolist())
@@ -363,6 +365,7 @@ class GPT(nn.Module):
                     break
             # append sampled index to the running sequence and continue
             idx = torch.cat((idx, idx_next), dim=1)
+            # generate logprobs
             if logprobs != None:
                 tokens.append(decode(idx[0].tolist())[-1])
                 idx_next_prob = probs[:, idx_next.squeeze().item()].item()

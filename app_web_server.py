@@ -4,11 +4,12 @@ import time
 import json
 from redis import Redis
 import boto3
+import config as cfg
 
 app = Flask(__name__)
 app.config['DEBUG'] = True
 redis = Redis(host="nano-s.b7yglw.ng.0001.use2.cache.amazonaws.com", port=6379, decode_responses=True, db=0)
-sqs = boto3.client('sqs', region_name='us-east-2',aws_access_key_id="AKIAT2DAQNWWAQQKX2YJ",aws_secret_access_key= "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")
+sqs = boto3.client('sqs', region_name='us-east-2',aws_access_key_id=cfg.aws_access_key_id, aws_secret_access_key=cfg.aws_secret_access_key)
 QueueUrl = sqs.get_queue_url(QueueName="nano.fifo")
 
 

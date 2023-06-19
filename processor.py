@@ -4,12 +4,14 @@ import time
 import json
 from redis.cluster import RedisCluster
 from redis import Redis
+import config as cfg
 
 import boto3
 from botocore.exceptions import ClientError
 import logging
+
 redis = Redis(host="nano-s.b7yglw.ng.0001.use2.cache.amazonaws.com", port=6379, decode_responses=True, db=0)
-sqs = boto3.client('sqs', region_name='us-east-2',aws_access_key_id="AKIAT2DAQNWWAQQKX2YJ",aws_secret_access_key= "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")
+sqs = boto3.client('sqs', region_name='us-east-2',aws_access_key_id=cfg.aws_access_key_id, aws_secret_access_key=cfg.aws_secret_access_key)
 QueueUrl = sqs.get_queue_url(QueueName="nano.fifo")
 logger = logging.getLogger(__name__)
 
@@ -18,9 +20,10 @@ def app():
     '''
     App processor.  Retrieves data to process from queue, process data then uploads to reddit
     '''
+    #Runs until deactivate message is pass from queue
     deactivate = False    
     while deactivate is not True:
-
+        #recieves and parses message
         message = receive_messages(QueueUrl)
         if message is None or message is False:
             continue
@@ -37,12 +40,13 @@ def app():
         idRequest = message["id"]
         if "deactivate" in  message:
             deactivate = message["deactivate"]
+        #Prepare and run moel
         i = Inference(init_from=init_from,out_dir=out_dir,start=prompt,num_samples=n,max_new_tokens=max_tokens,temperature=temperature)
         r = i.run(stop=stop,logprobs=logprobs,logit_bias=logit_bias)
 
 
         ts = time.time()
-
+        #Create and return result
         result = {
             "id": "cmpl-"+str(idRequest),
             "object": "text_completion",
@@ -61,7 +65,7 @@ def app():
 
 def receive_messages(QueueUrl, max_number=1, wait_time=20):
     """
-    Receive a batch of messages in a single request from an SQS queue.
+    Receive a batch of messages in a single request from an SQS queue.  Setup to handle single message, deletes mesages and passes on for further processing
 
     :param queue: The queue from which to receive messages.
     :param max_number: The maximum number of messages to receive. The actual number
@@ -73,6 +77,7 @@ def receive_messages(QueueUrl, max_number=1, wait_time=20):
              of the message and metadata and custom attributes.
     """
     try:
+        #retrieves message
         messages = sqs.receive_message(
             QueueUrl=QueueUrl["QueueUrl"],
             MessageAttributeNames=['All'],
@@ -82,11 +87,13 @@ def receive_messages(QueueUrl, max_number=1, wait_time=20):
         if "Messages" not in messages:
             return None
         for msg in messages["Messages"]:
+            #deletes manual test message for queue testing
             if msg["Body"]=="test":
                 receipt_handle = msg['ReceiptHandle']
                 delete_result=sqs.delete_message(QueueUrl=QueueUrl["QueueUrl"],ReceiptHandle=receipt_handle)
                 return False
 
+            #deletes message
             print("msg:",msg["Body"])
             logger.info("Received message: %s: %s", msg["MessageId"], msg["Body"])
             receipt_handle = msg['ReceiptHandle']
